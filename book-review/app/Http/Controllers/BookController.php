@@ -10,18 +10,21 @@ class BookController extends Controller
     /**
      * Display a listing of the resource.
      */
- public function index(Request $request)
+public function index(Request $request)
 {
     $title = $request->input('title');
+    $sort = $request->input('sort', 'desc'); // padrão: maior nota primeiro
 
     $books = Book::when($title, function ($query, $title) {
-                    return $query->title($title);
-                })
-                ->withAvg('reviews', 'rating')
-                ->withCount('reviews')
-                ->get();
+                        return $query->where('title', 'like', "%{$title}%");
+                    })
+                    ->withAvg('reviews', 'rating')
+                    ->withCount('reviews')
+                    ->orderBy('reviews_avg_rating', $sort)
+                    ->paginate(10) // 👈 aqui entra a paginação
+                    ->appends(['title' => $title, 'sort' => $sort]); // mantém filtros na navegação
 
-    return view('books.index', compact('books'));
+    return view('books.index', compact('books', 'title', 'sort'));
 }
 
     /**
@@ -43,9 +46,14 @@ class BookController extends Controller
     /**
      * Display the specified resource.
      */
+
 public function show(Book $book)
 {
-    $book->load('reviews'); // carrega as reviews do livro
+    $book->load([
+        'reviews',
+    ])->loadCount('reviews')
+      ->loadAvg('reviews', 'rating');
+
     return view('books.show', compact('book'));
 }
 
